@@ -10,9 +10,6 @@ namespace Extcode\CartPayone\Controller\Order;
  */
 
 use Extcode\Cart\Domain\Model\Cart;
-use Extcode\Cart\Domain\Repository\CartRepository;
-use Extcode\Cart\Domain\Repository\Order\PaymentRepository;
-use Extcode\Cart\Service\SessionHandler;
 use Extcode\CartPayone\Event\Order\CancelEvent;
 use Extcode\CartPayone\Event\Order\FinishEvent;
 use TYPO3\CMS\Core\Messaging\AbstractMessage;
@@ -20,32 +17,10 @@ use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
-use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
-use TYPO3\CMS\Extbase\Persistence\Generic\Typo3QuerySettings;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionController
 {
-    /**
-     * @var PersistenceManager
-     */
-    protected $persistenceManager;
-
-    /**
-     * @var SessionHandler
-     */
-    protected $sessionHandler;
-
-    /**
-     * @var CartRepository
-     */
-    protected $cartRepository;
-
-    /**
-     * @var PaymentRepository
-     */
-    protected $paymentRepository;
-
     /**
      * @var Cart
      */
@@ -61,25 +36,12 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
      */
     protected $pluginSettings;
 
-    public function injectPersistenceManager(PersistenceManager $persistenceManager): void
-    {
-        $this->persistenceManager = $persistenceManager;
-    }
-
-    public function injectSessionHandler(SessionHandler $sessionHandler): void
-    {
-        $this->sessionHandler = $sessionHandler;
-    }
-
-    public function injectCartRepository(CartRepository $cartRepository): void
-    {
-        $this->cartRepository = $cartRepository;
-    }
-
-    public function injectPaymentRepository(PaymentRepository $paymentRepository): void
-    {
-        $this->paymentRepository = $paymentRepository;
-    }
+    public function __construct(
+        protected \TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager $persistenceManager,
+        protected \Extcode\Cart\Service\SessionHandler $sessionHandler,
+        protected \Extcode\Cart\Domain\Repository\CartRepository $cartRepository,
+        protected \Extcode\Cart\Domain\Repository\Order\PaymentRepository $paymentRepository
+    ) {}
 
     protected function initializeAction(): void
     {
