@@ -11,8 +11,8 @@ $EM_CONF['cart_payone'] = [
     'version' => '3.0.0',
     'constraints' => [
         'depends' => [
-            'typo3' => '11.5.0-11.5.99',
-            'cart' => '8.6.0',
+            'typo3' => '13.4.0-13.4.99',
+            'cart' => '11.5',
         ],
         'conflicts' => [],
         'suggests' => [],
