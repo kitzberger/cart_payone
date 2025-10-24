@@ -1,3 +1,6 @@
 plugin.tx_cartpayone {
+    #cat=plugin.tx_cartpayone//a; type=options[ISO-8859-1,UTF-8]; label=Encoding for PayOne Frontend Channel
+    encoding = ISO-8859-1
+
     redirectTypeNum = 2278105
 }

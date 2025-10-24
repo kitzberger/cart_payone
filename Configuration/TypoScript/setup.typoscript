@@ -19,6 +19,7 @@ plugin.tx_cartpayone {
     sandbox = 1
 
     redirectTypeNum = {$plugin.tx_cartpayone.redirectTypeNum}
+    encoding = {$plugin.tx_cartpayone.encoding}
 
     request = authorization
 }

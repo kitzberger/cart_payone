@@ -189,6 +189,7 @@ class ProviderRedirect implements LoggerAwareInterface
         $this->paymentQuery['currency'] = $this->orderItem->getCurrencyCode();
         $this->paymentQuery['request'] = $this->conf['request'];
         $this->paymentQuery['reference'] = time();
+        $this->paymentQuery['encoding'] = $this->conf['encoding'];
 
         $this->addPaymentQueryReturnUrls();
     }
