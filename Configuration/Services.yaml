@@ -28,7 +28,7 @@ services:
         event: Extcode\Cart\Event\Order\PaymentEvent
 
   Extcode\CartPayone\EventListener\Order\Finish\Email:
-    class: 'Extcode\Cart\EventListener\ProcessOrderCreate\Email'
+    class: 'Extcode\Cart\EventListener\Order\Finish\Email'
     tags:
       - name: event.listener
         identifier: 'cart-payone--order--finish--email'

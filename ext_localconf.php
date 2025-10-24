@@ -1,16 +1,20 @@
 <?php
 
+use Extcode\CartPayone\Controller\Order\PaymentController;
+use TYPO3\CMS\Extbase\Utility\ExtensionUtility;
+
 defined('TYPO3') or die();
 
 // configure plugins
 
-\TYPO3\CMS\Extbase\Utility\ExtensionUtility::configurePlugin(
+ExtensionUtility::configurePlugin(
     'CartPayone',
     'Cart',
     [
-        \Extcode\CartPayone\Controller\Order\PaymentController::class => 'success, cancel',
+        PaymentController::class => 'success, cancel',
     ],
     [
-        \Extcode\CartPayone\Controller\Order\PaymentController::class => 'success, cancel',
-    ]
+        PaymentController::class => 'success, cancel',
+    ],
+    ExtensionUtility::PLUGIN_TYPE_CONTENT_ELEMENT
 );

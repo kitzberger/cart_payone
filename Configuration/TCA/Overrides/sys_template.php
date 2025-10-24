@@ -1,8 +1,11 @@
 <?php
+
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+
 defined('TYPO3') or die();
 
-call_user_func(function () {
-    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addStaticFile(
+call_user_func(function() {
+    ExtensionManagementUtility::addStaticFile(
         'cart_payone',
         'Configuration/TypoScript',
         'Shopping Cart - Payone'

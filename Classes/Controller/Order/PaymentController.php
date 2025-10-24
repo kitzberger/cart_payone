@@ -10,16 +10,23 @@ namespace Extcode\CartPayone\Controller\Order;
  */
 
 use Extcode\Cart\Domain\Model\Cart;
+use Extcode\Cart\Domain\Repository\CartRepository;
+use Extcode\Cart\Domain\Repository\Order\PaymentRepository;
+use Extcode\Cart\Service\SessionHandler;
 use Extcode\CartPayone\Event\Order\CancelEvent;
 use Extcode\CartPayone\Event\Order\FinishEvent;
-use TYPO3\CMS\Core\Messaging\AbstractMessage;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
+use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
-class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionController
+class PaymentController extends ActionController
 {
     /**
      * @var Cart
@@ -37,11 +44,13 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
     protected $pluginSettings;
 
     public function __construct(
-        protected \TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager $persistenceManager,
-        protected \Extcode\Cart\Service\SessionHandler $sessionHandler,
-        protected \Extcode\Cart\Domain\Repository\CartRepository $cartRepository,
-        protected \Extcode\Cart\Domain\Repository\Order\PaymentRepository $paymentRepository
-    ) {}
+        protected PersistenceManager $persistenceManager,
+        protected SessionHandler $sessionHandler,
+        protected CartRepository $cartRepository,
+        protected PaymentRepository $paymentRepository,
+        protected EventDispatcherInterface $eventDispatcher
+    ) {
+    }
 
     protected function initializeAction(): void
     {
@@ -58,7 +67,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
             );
     }
 
-    public function successAction(): void
+    public function successAction(): ResponseInterface
     {
         if ($this->request->hasArgument('hash') && !empty($this->request->getArgument('hash'))) {
             $hash = $this->request->getArgument('hash');
@@ -67,7 +76,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
             $querySettings->setStoragePageIds([$this->cartPluginSettings['settings']['order']['pid']]);
             $this->cartRepository->setDefaultQuerySettings($querySettings);
 
-            $this->cart = $this->cartRepository->findOneBySHash($hash);
+            $this->cart = $this->cartRepository->findOneBy(['sHash' => $hash]);
 
             if ($this->cart) {
                 $orderItem = $this->cart->getOrderItem();
@@ -84,7 +93,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
                     $this->eventDispatcher->dispatch($finishEvent);
                 }
 
-                $this->redirect('show', 'Cart\Order', 'Cart', ['orderItem' => $orderItem]);
+                return $this->redirect('show', 'Cart\Order', 'Cart', ['orderItem' => $orderItem]);
             } else {
                 $this->addFlashMessage(
                     LocalizationUtility::translate(
@@ -92,7 +101,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
                         'CartPayone'
                     ),
                     '',
-                    AbstractMessage::ERROR
+                    ContextualFeedbackSeverity::ERROR
                 );
             }
         } else {
@@ -102,12 +111,14 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
                     'CartPayone'
                 ),
                 '',
-                AbstractMessage::ERROR
+                ContextualFeedbackSeverity::ERROR
             );
         }
+
+        return $this->htmlResponse();
     }
 
-    public function cancelAction(): void
+    public function cancelAction(): ResponseInterface
     {
         if ($this->request->hasArgument('hash') && !empty($this->request->getArgument('hash'))) {
             $hash = $this->request->getArgument('hash');
@@ -116,7 +127,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
             $querySettings->setStoragePageIds([$this->cartPluginSettings['settings']['order']['pid']]);
             $this->cartRepository->setDefaultQuerySettings($querySettings);
 
-            $this->cart = $this->cartRepository->findOneByFHash($hash);
+            $this->cart = $this->cartRepository->findOneBy(['fHash' => $hash]);
 
             if ($this->cart) {
                 $orderItem = $this->cart->getOrderItem();
@@ -137,7 +148,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
 
                 $this->addFlashMessageToCartCart('tx_cartpayone.controller.order.payment.action.cancel.successfully_canceled');
 
-                $this->redirect('show', 'Cart\Cart', 'Cart');
+                return $this->redirect('show', 'Cart\Cart', 'Cart');
             } else {
                 $this->addFlashMessage(
                     LocalizationUtility::translate(
@@ -145,7 +156,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
                         'CartPayone'
                     ),
                     '',
-                    AbstractMessage::ERROR
+                    ContextualFeedbackSeverity::ERROR
                 );
             }
         } else {
@@ -155,9 +166,11 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
                     'CartPayone'
                 ),
                 '',
-                AbstractMessage::ERROR
+                ContextualFeedbackSeverity::ERROR
             );
         }
+
+        return $this->htmlResponse();
     }
 
     protected function addFlashMessageToCartCart(string $translationKey): void
@@ -169,7 +182,7 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
                 'CartPayone'
             ),
             '',
-            AbstractMessage::ERROR,
+            ContextualFeedbackSeverity::ERROR,
             true
         );
 
@@ -183,6 +196,6 @@ class PaymentController extends \TYPO3\CMS\Extbase\Mvc\Controller\ActionControll
         $cart = $this->cart->getCart();
         $cart->resetOrderNumber();
         $cart->resetInvoiceNumber();
-        $this->sessionHandler->write($cart, $this->cartPluginSettings['settings']['cart']['pid']);
+        $this->sessionHandler->writeCart($this->cartPluginSettings['settings']['cart']['pid'], $cart);
     }
 }

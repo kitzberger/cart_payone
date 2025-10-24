@@ -1,5 +1,7 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Extcode\CartPayone\EventListener\Order\Payment;
 
 /*
@@ -14,49 +16,29 @@ use Extcode\Cart\Domain\Model\Order\Item as OrderItem;
 use Extcode\Cart\Domain\Repository\CartRepository;
 use Extcode\Cart\Domain\Repository\Order\PaymentRepository;
 use Extcode\Cart\Event\Order\PaymentEvent;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\TypoScript\TypoScriptService;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManager;
+use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
+use TYPO3\CMS\Extbase\Mvc\Request;
 use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
+use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
 
-class ProviderRedirect
+class ProviderRedirect implements LoggerAwareInterface
 {
-    const PAYMENT_API_URL = 'https://frontend.pay1.de/frontend/v2/';
+    use LoggerAwareTrait;
+
+    public const PAYMENT_API_URL = 'https://frontend.pay1.de/frontend/v2/';
 
     /**
      * @var OrderItem
      */
     protected $orderItem;
-
-    /**
-     * @var PersistenceManager
-     */
-    protected $persistenceManager;
-
-    /**
-     * @var ConfigurationManager
-     */
-    protected $configurationManager;
-
-    /**
-     * @var TypoScriptService
-     */
-    protected $typoScriptService;
-
-    /**
-     * @var UriBuilder
-     */
-    protected $uriBuilder;
-
-    /**
-     * @var CartRepository
-     */
-    protected $cartRepository;
-
-    /**
-     * @var PaymentRepository
-     */
-    protected $paymentRepository;
 
     /**
      * @var array
@@ -84,20 +66,13 @@ class ProviderRedirect
     protected $paymentQuery = [];
 
     public function __construct(
-        ConfigurationManager $configurationManager,
-        PersistenceManager $persistenceManager,
-        TypoScriptService $typoScriptService,
-        UriBuilder $uriBuilder,
-        CartRepository $cartRepository,
-        PaymentRepository $paymentRepository
+        protected ConfigurationManager $configurationManager,
+        protected PersistenceManager $persistenceManager,
+        protected TypoScriptService $typoScriptService,
+        protected UriBuilder $uriBuilder,
+        protected CartRepository $cartRepository,
+        protected PaymentRepository $paymentRepository
     ) {
-        $this->configurationManager = $configurationManager;
-        $this->persistenceManager = $persistenceManager;
-        $this->typoScriptService = $typoScriptService;
-        $this->uriBuilder = $uriBuilder;
-        $this->cartRepository = $cartRepository;
-        $this->paymentRepository = $paymentRepository;
-
         $this->conf = $this->configurationManager->getConfiguration(
             ConfigurationManager::CONFIGURATION_TYPE_FRAMEWORK,
             'CartPayone'
@@ -125,6 +100,8 @@ class ProviderRedirect
             return;
         }
 
+        $this->logger->debug('Handling PaymentEvent for provider: PAYONE');
+
         $this->paymentQuery['amount'] = round($this->orderItem->getTotalGross() * 100);
         $feUser = $this->orderItem->getFeUser();
         if ($feUser) {
@@ -150,7 +127,9 @@ class ProviderRedirect
         $this->cartFHash = $cart->getFHash();
         $this->cartSHash = $cart->getSHash();
 
-        header('Location: ' . self::PAYMENT_API_URL . '?' . $this->getQuery());
+        $url = self::PAYMENT_API_URL . '?' . $this->getQuery();
+        $this->logger->debug($url);
+        header('Location: ' . $url);
 
         $event->setPropagationStopped(true);
     }
@@ -161,6 +140,8 @@ class ProviderRedirect
         $this->getQueryFromCart();
         $this->calculateQueryHash();
         $this->getQueryFromOrder();
+
+        $this->logger->debug('paymentQuery', $this->paymentQuery);
 
         return http_build_query($this->paymentQuery);
     }
@@ -272,7 +253,7 @@ class ProviderRedirect
         $this->paymentQuery['backurl'] = $this->buildReturnUrl('cancel', $this->cartFHash);
     }
 
-    protected function buildReturnUrl(string $action, string $hash) : string
+    protected function buildReturnUrl(string $action, string $hash): string
     {
         $pid = (int)$this->cartConf['settings']['cart']['pid'];
 
@@ -285,13 +266,34 @@ class ProviderRedirect
             ]
         ];
 
-        $uriBuilder = $this->uriBuilder;
+        $this->logger->debug('buildReturnUrl', [
+            'pid' => $pid,
+            'type' => $this->conf['redirectTypeNum'],
+            'arguments' => $arguments
+        ]);
 
-        return $uriBuilder->reset()
+        return $this->uriBuilder->reset()
+            ->setRequest($this->getExtbaseRequest())
             ->setTargetPageUid($pid)
             ->setTargetPageType((int)$this->conf['redirectTypeNum'])
             ->setCreateAbsoluteUri(true)
             ->setArguments($arguments)
             ->build();
+    }
+
+    private function getExtbaseRequest(): RequestInterface
+    {
+        /** @var ServerRequestInterface $request */
+        $request = $GLOBALS['TYPO3_REQUEST'];
+
+        $cObj = GeneralUtility::makeInstance(ContentObjectRenderer::class);
+        $cObj->setRequest($request);
+
+        // We have to provide an Extbase request object
+        return new Request(
+            $request
+                ->withAttribute('extbase', new ExtbaseRequestParameters())
+                ->withAttribute('currentContentObject', $cObj)
+        );
     }
 }
