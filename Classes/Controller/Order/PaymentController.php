@@ -9,13 +9,16 @@ namespace Extcode\CartPayone\Controller\Order;
  * LICENSE file that was distributed with this source code.
  */
 
+use Extcode\CartPayone\Event\Order\CancelEvent;
+use Extcode\CartPayone\Event\Order\FinishEvent;
 use Extcode\Cart\Domain\Model\Cart;
 use Extcode\Cart\Domain\Repository\CartRepository;
 use Extcode\Cart\Domain\Repository\Order\PaymentRepository;
 use Extcode\Cart\Service\SessionHandler;
-use Extcode\CartPayone\Event\Order\CancelEvent;
-use Extcode\CartPayone\Event\Order\FinishEvent;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
@@ -24,10 +27,11 @@ use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
-use Psr\EventDispatcher\EventDispatcherInterface;
 
-class PaymentController extends ActionController
+class PaymentController extends ActionController implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     /**
      * @var Cart
      */
@@ -83,6 +87,7 @@ class PaymentController extends ActionController
                 $payment = $orderItem->getPayment();
 
                 if ($payment->getStatus() !== 'paid') {
+                    $this->logger->debug('successAction(): setting payment status to "paid"');
                     $payment->setStatus('paid');
 
                     $this->paymentRepository->update($payment);
@@ -93,8 +98,10 @@ class PaymentController extends ActionController
                     $this->eventDispatcher->dispatch($finishEvent);
                 }
 
+                $this->logger->debug('successAction(): redirecting to cart show action');
                 return $this->redirect('show', 'Cart\Order', 'Cart', ['orderItem' => $orderItem]);
             } else {
+                $this->logger->debug('successAction(): error occured');
                 $this->addFlashMessage(
                     LocalizationUtility::translate(
                         'tx_cartpayone.controller.order.payment.action.success.error_occured',
@@ -105,6 +112,7 @@ class PaymentController extends ActionController
                 );
             }
         } else {
+            $this->logger->debug('successAction(): access denied');
             $this->addFlashMessage(
                 LocalizationUtility::translate(
                     'tx_cartpayone.controller.order.payment.action.success.access_denied',
@@ -133,9 +141,11 @@ class PaymentController extends ActionController
                 $orderItem = $this->cart->getOrderItem();
                 $payment = $orderItem->getPayment();
 
+                $this->logger->debug('cancelAction(): restoring cart session');
                 $this->restoreCartSession();
 
                 if ($payment->getStatus() !== 'canceled') {
+                    $this->logger->debug('cancelAction(): setting payment status to "canceled"');
                     $payment->setStatus('canceled');
 
                     $this->paymentRepository->update($payment);
@@ -148,8 +158,10 @@ class PaymentController extends ActionController
 
                 $this->addFlashMessageToCartCart('tx_cartpayone.controller.order.payment.action.cancel.successfully_canceled');
 
+                $this->logger->debug('cancelAction(): redirecting to cart show action');
                 return $this->redirect('show', 'Cart\Cart', 'Cart');
             } else {
+                $this->logger->debug('cancelAction(): error occured');
                 $this->addFlashMessage(
                     LocalizationUtility::translate(
                         'tx_cartpayone.controller.order.payment.action.cancel.error_occured',
@@ -160,6 +172,7 @@ class PaymentController extends ActionController
                 );
             }
         } else {
+            $this->logger->debug('cancelAction(): access denied');
             $this->addFlashMessage(
                 LocalizationUtility::translate(
                     'tx_cartpayone.controller.order.payment.action.cancel.access_denied',
