@@ -27,6 +27,8 @@ services:
         identifier: 'cart-payone--order--payment--provider-redirect'
         event: Extcode\Cart\Event\Order\PaymentEvent
 
+  # This following class is not existing, but it's effectivly making EXT:cart
+  # listen to EXT:cart_payone's FinishEvent to send out the mails!
   Extcode\CartPayone\EventListener\Order\Finish\Email:
     class: 'Extcode\Cart\EventListener\Order\Finish\Email'
     tags:
